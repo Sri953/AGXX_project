@@ -34,7 +34,7 @@ bowtie2-build -f /scratch/grp/msc_appbio/group5/metadata/GCF_000017085.1_ASM1708
 Then conda bowtie2 for aligning the genome with the reference (trouble finding
 the correct version)
 
-Run the QC, lack of quality, moved to local disk using sftp:
+Run the QC, lack of quality, moved to local disk using sftp yea:
 ```{bash}
 load fastqc
 fastqc ERR2713021_1.fast.gz
