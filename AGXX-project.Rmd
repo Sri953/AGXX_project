@@ -108,7 +108,7 @@ sftp> put genomic.*
 
 ```
 
-
+i commit 
 ```{bash}
 featureCounts -T 4 -a <annotation.gtf> -o <output_counts.txt> <input.bam>
 #stuck on 8%
