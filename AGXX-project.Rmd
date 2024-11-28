@@ -1,0 +1,115 @@
+---
+title: "AGXX-Group"
+author: "Me"
+date: "2024-11-28"
+output: html_document
+---
+
+
+Step 1: Using wget to download the fastq files onto the HPC in our originals 
+folder and load in FASTA file of reference genome into metadata 
+
+```{bash}
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/002/ERR2713022/ERR2713022_1.fastq.gz
+wget https://www.ebi.ac.uk/ena/browser/api/fasta/CP000730.1?download=true
+#This was for the first atempt 
+
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/017/085/GCF_000017085.1_ASM1708v1/
+
+
+```
+
+Create work environment on HPC and use conda to install packages needed for
+the alignment:
+```{bash}
+srun -p msc_appbio --pty /bin/bash
+conda create -n agxx
+conda activate agxx
+```
+
+
+Create the bowtie index:
+```{bash}
+bowtie2-build -f /scratch/grp/msc_appbio/group5/metadata/GCF_000017085.1_ASM1708v1_genomic.fna.gz /scratch/grp/msc_appbio/group5/results/bowtie_index
+```
+
+
+Then conda bowtie2 for aligning the genome with the reference (trouble finding
+the correct version)
+
+Run the QC, lack of quality, moved to local disk using sftp:
+```{bash}
+load fastqc
+fastqc ERR2713021_1.fast.gz
+sftp 
+```
+
+```{bash}
+# in local terminal to gain fastqc report in local drive
+sftp 
+```
+
+
+Run a bash script for all the fastq files:
+```{bash}
+srun -p msc_appbio --pty /bin/bash
+
+#we ran one sample to test if the new ref genome would work
+
+#!/bin/bash
+echo "Begin Alignment"
+echo "Aligning Sample 1"
+bowtie2 -x "results/bowtie_index/results" -1 "originals/ERR2713020_1.fastq.gz" -2 "originals/ERR2713020_2.fastq.gz" -S "results/sample1.sam"
+echo "Aligning Sample 2"
+bowtie2 -x "results/bowtie_index/results" -1 "originals/ERR2713021_1.fastq.gz" -2 "originals/ERR2713021_2.fastq.gz" -S "results/sample2.sam"
+echo "Aligning Sample 3"
+bowtie2 -x "results/bowtie_index/results" -1 "originals/ERR2713022_1.fastq.gz" -2 "originals/ERR2713022_2.fastq.gz" -S "results/sample3.sam"
+echo "Aligning Sample 4"
+bowtie2 -x "results/bowtie_index/results" -1 "originals/ERR2713023_1.fastq.gz" -2 "originals/ERR2713023_2.fastq.gz" -S "results/sample4.sam"
+echo "Aligning Sample 5"
+bowtie2 -x "results/bowtie_index/results" -1 "originals/ERR2713024_1.fastq.gz" -2 "originals/ERR2713024_2.fastq.gz" -S "results/sample5.sam"
+echo "Aligning Sample 6"
+bowtie2 -x "results/bowtie_index/results" -1 "originals/ERR2713025_1.fastq.gz" -2 "originals/ERR2713025_2.fastq.gz" -S "results/sample6.sam"
+echo "Alignment complete"
+
+```
+
+
+load in samtools
+
+```{bash}
+conda install -c bioconda samtools
+```
+
+converting sam to bam
+
+```{bash}
+samtool view -b -S -o "results/BAMoutputs/sample1.bam" "results/sample1.sam"
+```
+
+sorting the file
+```{bash}
+samtools sort "results/BAMoutputs/sample1.bam" -o "results/BAMoutputs/
+sample1.bam.sorted"
+```
+
+
+
+Importing the GTF file of the annotated gene of S. aureus inside GCF file from
+NCBI
+```{bash}
+sftp> -i ~/ssh/create_msc/knumber
+sftp> pwd #hpc directory
+sftp> lpwd #local directory
+sftp> lcd directory path
+sftp> lpwd scartch/grp/msc_appbio/group5/GTF
+sftp> put genomic.* 
+#uploads gtf file into HPC
+
+```
+
+
+```{bash}
+featureCounts -T 4 -a <annotation.gtf> -o <output_counts.txt> <input.bam>
+#stuck on 8%
+```
