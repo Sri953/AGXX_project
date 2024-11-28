@@ -1,6 +1,6 @@
 ---
 title: "AGXX-Group"
-author: "Me"
+author: "Me", "Sri"
 date: "2024-11-28"
 output: html_document
 ---
@@ -15,8 +15,6 @@ wget https://www.ebi.ac.uk/ena/browser/api/fasta/CP000730.1?download=true
 #This was for the first atempt 
 
 wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/017/085/GCF_000017085.1_ASM1708v1/
-
-
 ```
 
 Create work environment on HPC and use conda to install packages needed for
@@ -26,7 +24,6 @@ srun -p msc_appbio --pty /bin/bash
 conda create -n agxx
 conda activate agxx
 ```
-
 
 Create the bowtie index:
 ```{bash}
@@ -74,7 +71,6 @@ echo "Alignment complete"
 
 ```
 
-
 load in samtools
 
 ```{bash}
@@ -108,6 +104,7 @@ sftp> put genomic.*
 
 ```
 
+Prodigal
 i commit 
 ```{bash}
 featureCounts -T 4 -a <annotation.gtf> -o <output_counts.txt> <input.bam>
