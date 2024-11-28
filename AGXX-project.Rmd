@@ -104,9 +104,13 @@ sftp> put genomic.*
 
 ```
 
-Prodigal
-i commit 
+#Install the prodigal package to create a gene annotation file
 ```{bash}
-featureCounts -T 4 -a <annotation.gtf> -o <output_counts.txt> <input.bam>
-#stuck on 8%
+conda install bioconda::prodigal #into agxx environment
+prodigal -i CP000730.1.fasta -o CP000730.1.gff -a CP000730.1.faa -f gff
+```
+
+#Use gene annotation file to create a counts file for diffrential analysis
+```{bash}
+featureCounts -t CDS -g ID -F GFF -a CP000730.1.gff -o sample1counts.txt sample1.sorted.bam
 ```
