@@ -1,116 +1,247 @@
 ---
 title: "AGXX-Group"
-author: "Me", "Sri"
+author: "Srilakshmi", "Edward", "Aidan"
 date: "2024-11-28"
 output: html_document
 ---
 
+# Step 1: Download genomes and set up environment 
 
-Step 1: Using wget to download the fastq files onto the HPC in our originals 
-folder and load in FASTA file of reference genome into metadata 
+# Download from GenBank the FASTA (fna) file of reference genome and the gene annotation file into reference_genome 
 
 ```{bash}
-wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/002/ERR2713022/ERR2713022_1.fastq.gz
-wget https://www.ebi.ac.uk/ena/browser/api/fasta/CP000730.1?download=true
-#This was for the first atempt 
-
-wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/017/085/GCF_000017085.1_ASM1708v1/
+wget -N https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/017/085/GCA_000017085.1_ASM1708v1/GCA_000017085.1_ASM1708v1_genomic.fna.gz -O CP000730.fna.gz #downloading fna file for genome
+wget -N https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/017/085/GCA_000017085.1_ASM1708v1/GCA_000017085.1_ASM1708v1_genomic.gtf.gz -O CP000730.gtf.gz #downloading gtf - the gene annotation file for the genome
 ```
 
-Create work environment on HPC and use conda to install packages needed for
-the alignment:
+#Download sample fastq files from ENA into the orignials folder using wget
 ```{bash}
-srun -p msc_appbio --pty /bin/bash
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/002/ERR2713022/ERR2713022_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/002/ERR2713022/ERR2713022_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/000/ERR2713020/ERR2713020_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/000/ERR2713020/ERR2713020_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/005/ERR2713025/ERR2713025_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/005/ERR2713025/ERR2713025_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/001/ERR2713021/ERR2713021_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/001/ERR2713021/ERR2713021_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/003/ERR2713023/ERR2713023_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/003/ERR2713023/ERR2713023_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/004/ERR2713024/ERR2713024_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/004/ERR2713024/ERR2713024_2.fastq.gz
+```
+
+# Create a new working environment called agxx using conda on the HPC 
+```{bash}
+srun -p msc_appbio --pty /bin/bash # Ask for resources to run the job
 conda create -n agxx
 conda activate agxx
 ```
 
-Create the bowtie index:
+# Install the necessary packages needed for alignment of the genome.
 ```{bash}
-bowtie2-build -f /scratch/grp/msc_appbio/group5/metadata/GCF_000017085.1_ASM1708v1_genomic.fna.gz /scratch/grp/msc_appbio/group5/results/bowtie_index
+conda install -c bioconda fastqc
+conda install bioconda::bowtie2
+conda install -c bioconda samtools
+conda install -c bioconda subread
 ```
 
+#Make the necessary directories for data and outputs to be stored into
+```{bash}
+mkdir originals
+mkdir bowtie_index
+mkdir results
+mkdir results/sam_outputs
+mkdir results/bam_outputs
+mkdir results/sorted_bam_outputs
+```
 
-Then conda bowtie2 for aligning the genome with the reference (trouble finding
-the correct version)
+# Step 2: Pre alignment QC
 
+# QC the samples using fastqc 
+```{bash}
+nano fastqc.sh
+#Contents of the bash script:
+#!/bin/bash
+
+echo "Beginning FastQC for Samples"
+
+# Array of sample names
+samples=("ERR2713020" "ERR2713021" "ERR2713022" "ERR2713023" "ERR2713024" "ERR2713025")
+
+# Base paths
+input_dir="originals/"
+output_dir="FastQC/"
+
+# Begin FastQC
+for sample in "${samples[@]}"; do
+    echo "Running FastQC on $sample"
+
+ # Run FastQC on both paired-end files
+    fastqc -o "$output_dir" -t 4 "${input_dir}${sample}_1.fastq.gz"
+    fastqc -o "$output_dir" -t 4 "${input_dir}${sample}_2.fastq.gz"
+done
+
+echo "FastQC analysis completed for all samples"
+
+# Run the batch job
+sbatch -J fastqc -p msc_appbio fastqc.sh # -p ensures the msc_appbio partition is used
+#and use squeue -u knumber to see how the file is running
+```
+
+#Once QC has run, transfer HTML files onto local disk using sftp
 Run the QC, lack of quality, moved to local disk using sftp yea:
 ```{bash}
-load fastqc
-fastqc ERR2713021_1.fast.gz
-sftp 
+#On a new terminal login to sftp using sftp -i ~/.ssh/create_msc knumber@hpc.create.kcl.ac.uk
+
+#Change directory to location of html files
+cd /scratch_tmp/grp/msc_appbio/group5_tmp/FastQC
+
+#Change directory to where the FastQC files need to be downloaded into the local drive
+get *.html # ensures all html files are downloaded onto the local disk.
 ```
 
+#Once QC of files have been done move to alignment of the genome.
+
+# Step 3: Alignment 
+# In order to align the genome to the reference genome create the bowtie index:
 ```{bash}
-# in local terminal to gain fastqc report in local drive
-sftp 
+bowtie2-build --threads 4 /scratch_tmp/grp/msc_appbio/group5_tmp/reference_genome/CP000730.fna.gz  /scratch_tmp/grp/msc_appbio/group5_tmp/bowtie_index/index
 ```
 
-
-Run a bash script for all the fastq files:
+#Create a bash file and run the script for all the fastq files:
 ```{bash}
+nano alignment.sh
+
 srun -p msc_appbio --pty /bin/bash
 
-#we ran one sample to test if the new ref genome would work
-
+#Contents of the bash script:
 #!/bin/bash
+
 echo "Begin Alignment"
-echo "Aligning Sample 1"
-bowtie2 -x "results/bowtie_index/results" -1 "originals/ERR2713020_1.fastq.gz" -2 "originals/ERR2713020_2.fastq.gz" -S "results/sample1.sam"
-echo "Aligning Sample 2"
-bowtie2 -x "results/bowtie_index/results" -1 "originals/ERR2713021_1.fastq.gz" -2 "originals/ERR2713021_2.fastq.gz" -S "results/sample2.sam"
-echo "Aligning Sample 3"
-bowtie2 -x "results/bowtie_index/results" -1 "originals/ERR2713022_1.fastq.gz" -2 "originals/ERR2713022_2.fastq.gz" -S "results/sample3.sam"
-echo "Aligning Sample 4"
-bowtie2 -x "results/bowtie_index/results" -1 "originals/ERR2713023_1.fastq.gz" -2 "originals/ERR2713023_2.fastq.gz" -S "results/sample4.sam"
-echo "Aligning Sample 5"
-bowtie2 -x "results/bowtie_index/results" -1 "originals/ERR2713024_1.fastq.gz" -2 "originals/ERR2713024_2.fastq.gz" -S "results/sample5.sam"
-echo "Aligning Sample 6"
-bowtie2 -x "results/bowtie_index/results" -1 "originals/ERR2713025_1.fastq.gz" -2 "originals/ERR2713025_2.fastq.gz" -S "results/sample6.sam"
+
+# Array of sample IDs
+samples=("ERR2713020" "ERR2713021" "ERR2713022" "ERR2713023" "ERR2713024" "ERR2713025")
+
+# Base paths
+index="bowtie_index/index"
+input_dir="originals"
+output_dir="results/sam_outputs"
+
+# Align each sample
+for sample in "${samples[@]}"; do
+    echo "Aligning Sample $sample"
+    bowtie2 -x "$index" \
+            -1 "$input_dir/${sample}_1.fastq.gz" \
+            -2 "$input_dir/${sample}_2.fastq.gz" \
+            -S "$output_dir/${sample}.sam"
+done
+
 echo "Alignment complete"
 
+#Submit the job for alignment
+sbatch -J alignment -p msc_appbio alignment.sh
 ```
 
-load in samtools
+#Ensure that the correct sam files are present and then create a bash script convert sam file to bam
+```{bash}
+nano sam_bam.sh
+
+#Contents of the bash script:
+#!/bin/bash
+
+echo "Converting SAM to BAM"
+
+# Array of sample names
+samples=("ERR2713020" "ERR2713021" "ERR2713022" "ERR2713023" "ERR2713024" "ERR2713025")
+
+# Base paths
+input_dir="results/sam_outputs"
+output_dir="results/bam_outputs"
+
+# Convert each sample
+for sample in "${samples[@]}"; do
+    echo "Converting $sample"
+    samtools view -b -S -o "$output_dir/${sample}.bam" "$input_dir/${sample}.sam"
+done
+
+echo "Completion of SAM to BAM"
+
+#Submit the job for alignment
+sbatch -J sam_bam -p msc_appbio sam_bam.sh
+```
+
+#For ease of read, the bam file can be sorted into a sorted bam file.
+```{bash}
+nano sorted_bam.sh
+
+#Contents of the bash script:
+#!/bin/bash
+
+echo "Sorting BAM files"
+
+# Array of sample names
+samples=("ERR2713020" "ERR2713021" "ERR2713022" "ERR2713023" "ERR2713024" "ERR2713025")
+
+# Base paths
+input_dir="results/bam_outputs"
+output_dir="results/sorted_bam_outputs"
+
+# Sort each BAM file
+for sample in "${samples[@]}"; do
+    echo "Sorting BAM $sample"
+    samtools sort "$input_dir/${sample}.bam" -o "$output_dir/${sample}.sorted.bam"
+done
+
+echo "Sorting complete"
+
+#Submit the job for alignment
+sbatch -J sortedbam -p msc_appbio sorted_bam.sh
+```
+
+#In order for Diffrential Analysis with DESeq2, feature counts in the conda subread package needs to be used to obtain a counts file
 
 ```{bash}
-conda install -c bioconda samtools
+featureCounts -a CP000730.gtf.gz -o output_counts.txt ERR2713020.sorted.bam ERR2713021.sorted.bam ERR2713022.sorted.bam ERR2713023.sorted.bam ERR2713024.sorted.bam ERR2713025.sorted.bam
+
 ```
 
-converting sam to bam
+# or this and combine everything manually?
 
 ```{bash}
-samtool view -b -S -o "results/BAMoutputs/sample1.bam" "results/sample1.sam"
+#!/bin/bash
+
+echo "Creating Counts file"
+
+# Array of sample names
+samples=("ERR2713020" "ERR2713021" "ERR2713022" "ERR2713023" "ERR2713024" "ERR2713025")
+
+# Base paths
+input_dir="results/sorted_bam_outputs"
+output_dir="results/feature_counts"
+
+# Create counts file
+for sample in "${samples[@]}"; do
+    echo "Creating counts file $sample"
+    featureCounts -p -t CDS -g ID -F GFF -a "reference_genome/CP000730.1.gff" -o "$output_dir/${sample}counts.txt" "$input_dir/${sample}.sorted.bam"
+done
+
+echo "Sorting complete"
 ```
 
-sorting the file
-```{bash}
-samtools sort "results/BAMoutputs/sample1.bam" -o "results/BAMoutputs/
-sample1.bam.sorted"
-```
 
 
 
-Importing the GTF file of the annotated gene of S. aureus inside GCF file from
-NCBI
-```{bash}
-sftp> -i ~/ssh/create_msc/knumber
-sftp> pwd #hpc directory
-sftp> lpwd #local directory
-sftp> lcd directory path
-sftp> lpwd scartch/grp/msc_appbio/group5/GTF
-sftp> put genomic.* 
-#uploads gtf file into HPC
 
-```
 
-#Install the prodigal package to create a gene annotation file
-```{bash}
-conda install bioconda::prodigal #into agxx environment
-prodigal -i CP000730.1.fasta -o CP000730.1.gff -a CP000730.1.faa -f gff
-```
 
-#Use gene annotation file to create a counts file for diffrential analysis
-```{bash}
-featureCounts -t CDS -g ID -F GFF -a CP000730.1.gff -o sample1counts.txt sample1.sorted.bam
-```
+
+
+
+
+
+
+
+
+
+
+
