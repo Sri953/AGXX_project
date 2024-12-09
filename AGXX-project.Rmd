@@ -5,39 +5,51 @@ date: "2024-11-28"
 output: html_document
 ---
 
-# Step 1: Download genomes and set up environment 
+Step 1: Download genomes and set up environment
 
-# Download from GenBank the FASTA (fna) file of reference genome and the gene annotation file into reference_genome 
-
+Make the necessary directories for data and outputs to be stored into
 ```{bash}
-wget -N https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/017/085/GCA_000017085.1_ASM1708v1/GCA_000017085.1_ASM1708v1_genomic.fna.gz -O CP000730.fna.gz #downloading fna file for genome
-wget -N https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/017/085/GCA_000017085.1_ASM1708v1/GCA_000017085.1_ASM1708v1_genomic.gtf.gz -O CP000730.gtf.gz #downloading gtf - the gene annotation file for the genome
+mkdir reference_genome
+mkdir originals
+mkdir FastQC
+mkdir bowtie_index
+mkdir results
+mkdir results/sam_outputs
+mkdir results/bam_outputs
+mkdir results/sorted_bam_outputs
+mkdir featurecounts
 ```
 
-#Download sample fastq files from ENA into the orignials folder using wget
+Download from GenBank the FASTA (fna) file of reference genome and the gene annotation file into reference_genome
 ```{bash}
-wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/002/ERR2713022/ERR2713022_1.fastq.gz
-wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/002/ERR2713022/ERR2713022_2.fastq.gz
+wget -N https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/017/085/GCA_000017085.1_ASM1708v1/GCA_000017085.1_ASM1708v1_genomic.fna.gz -O reference_genome/CP000730.fna.gz #downloading fna file for genome
+wget -N https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/017/085/GCA_000017085.1_ASM1708v1/GCA_000017085.1_ASM1708v1_genomic.gtf.gz -O refernece_genome/CP000730.gtf.gz #downloading gtf - the gene annotation file for the genome
+```
+
+Download sample fastq files from www.ebi.ac.uk/arrayexpress accession number E-MTAB-7074, into the originals folder using wget
+```{bash}
 wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/000/ERR2713020/ERR2713020_1.fastq.gz
 wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/000/ERR2713020/ERR2713020_2.fastq.gz
-wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/005/ERR2713025/ERR2713025_1.fastq.gz
-wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/005/ERR2713025/ERR2713025_2.fastq.gz
 wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/001/ERR2713021/ERR2713021_1.fastq.gz
 wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/001/ERR2713021/ERR2713021_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/002/ERR2713022/ERR2713022_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/002/ERR2713022/ERR2713022_2.fastq.gz
 wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/003/ERR2713023/ERR2713023_1.fastq.gz
 wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/003/ERR2713023/ERR2713023_2.fastq.gz
 wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/004/ERR2713024/ERR2713024_1.fastq.gz
 wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/004/ERR2713024/ERR2713024_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/005/ERR2713025/ERR2713025_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/005/ERR2713025/ERR2713025_2.fastq.gz
 ```
 
-# Create a new working environment called agxx using conda on the HPC 
+Create a new working environment called agxx using conda on the HPC
 ```{bash}
-srun -p msc_appbio --pty /bin/bash # Ask for resources to run the job
-conda create -n agxx
-conda activate agxx
+srun -p msc_appbio --pty /bin/bash # Ask for resources to run the job in the msc_appbio partition
+conda create -n agxx #create the environment for all the packages to be installed into
+conda activate agxx #activate environement before installing packages
 ```
 
-# Install the necessary packages needed for alignment of the genome.
+Install the necessary packages needed for alignment of the genome.
 ```{bash}
 conda install -c bioconda fastqc
 conda install bioconda::bowtie2
@@ -45,19 +57,9 @@ conda install -c bioconda samtools
 conda install -c bioconda subread
 ```
 
-#Make the necessary directories for data and outputs to be stored into
-```{bash}
-mkdir originals
-mkdir bowtie_index
-mkdir results
-mkdir results/sam_outputs
-mkdir results/bam_outputs
-mkdir results/sorted_bam_outputs
-```
+Step 2: Pre alignment QC
 
-# Step 2: Pre alignment QC
-
-# QC the samples using fastqc 
+QC the samples using fastqc
 ```{bash}
 nano fastqc.sh
 #Contents of the bash script:
@@ -88,8 +90,7 @@ sbatch -J fastqc -p msc_appbio fastqc.sh # -p ensures the msc_appbio partition i
 #and use squeue -u knumber to see how the file is running
 ```
 
-#Once QC has run, transfer HTML files onto local disk using sftp
-Run the QC, lack of quality, moved to local disk using sftp yea:
+Once QC has run, transfer HTML files onto local disk using sftp
 ```{bash}
 #On a new terminal login to sftp using sftp -i ~/.ssh/create_msc knumber@hpc.create.kcl.ac.uk
 
@@ -100,15 +101,14 @@ cd /scratch_tmp/grp/msc_appbio/group5_tmp/FastQC
 get *.html # ensures all html files are downloaded onto the local disk.
 ```
 
-#Once QC of files have been done move to alignment of the genome.
+Once QC of files have been done move to alignment of the genome.
 
-# Step 3: Alignment 
-# In order to align the genome to the reference genome create the bowtie index:
+Step 3: Alignment In order to align the genome to the reference genome create the bowtie index:
 ```{bash}
 bowtie2-build --threads 4 /scratch_tmp/grp/msc_appbio/group5_tmp/reference_genome/CP000730.fna.gz  /scratch_tmp/grp/msc_appbio/group5_tmp/bowtie_index/index
 ```
 
-#Create a bash file and run the script for all the fastq files:
+Create a bash file and run the alignment for all the fastq files
 ```{bash}
 nano alignment.sh
 
@@ -142,7 +142,7 @@ echo "Alignment complete"
 sbatch -J alignment -p msc_appbio alignment.sh
 ```
 
-#Ensure that the correct sam files are present and then create a bash script convert sam file to bam
+Ensure that the correct sam files are present and then create a bash script convert sam to bam format
 ```{bash}
 nano sam_bam.sh
 
@@ -170,7 +170,7 @@ echo "Completion of SAM to BAM"
 sbatch -J sam_bam -p msc_appbio sam_bam.sh
 ```
 
-#For ease of read, the bam file can be sorted into a sorted bam file.
+For ease of read, the bam file can be sorted into a sorted bam file.
 ```{bash}
 nano sorted_bam.sh
 
@@ -198,50 +198,32 @@ echo "Sorting complete"
 sbatch -J sortedbam -p msc_appbio sorted_bam.sh
 ```
 
-#In order for Diffrential Analysis with DESeq2, feature counts in the conda subread package needs to be used to obtain a counts file
-
+In order for Diffrential Analysis with DESeq2, feature counts in the conda subread package needs to be used to obtain a counts file.
 ```{bash}
-featureCounts -a CP000730.gtf.gz -o output_counts.txt ERR2713020.sorted.bam ERR2713021.sorted.bam ERR2713022.sorted.bam ERR2713023.sorted.bam ERR2713024.sorted.bam ERR2713025.sorted.bam
-
-```
-
-# or this and combine everything manually?
-
-```{bash}
+#Contents of bash script:
 #!/bin/bash
 
-echo "Creating Counts file"
-
-# Array of sample names
-samples=("ERR2713020" "ERR2713021" "ERR2713022" "ERR2713023" "ERR2713024" "ERR2713025")
-
-# Base paths
+#Base paths
 input_dir="results/sorted_bam_outputs"
-output_dir="results/feature_counts"
+output_dir="featurecounts/"
+gtf_file="reference_genome/CP000730.gtf.gz"
 
-# Create counts file
-for sample in "${samples[@]}"; do
-    echo "Creating counts file $sample"
-    featureCounts -p -t CDS -g ID -F GFF -a "reference_genome/CP000730.1.gff" -o "$output_dir/${sample}counts.txt" "$input_dir/${sample}.sorted.bam"
-done
+# Run FeatureCounts
+echo "Creating counts file"
+featureCounts -t CDS -g gene_id -F GTF -p -a "$gtf_file" -o "$output_dir/allcounts.txt" \
+    "$input_dir/ERR2713020.sorted.bam" "$input_dir/ERR2713021.sorted.bam" "$input_dir/ERR2713022.sorted.bam" \
+    "$input_dir/ERR2713023.sorted.bam" "$input_dir/ERR2713024.sorted.bam" "$input_dir/ERR2713025.sorted.bam" \
 
-echo "Sorting complete"
+echo "Counts file created"
 ```
 
+Filtering and cleaning the counts file to convert into a csv file
+```{bash}
+sed '1d' allcounts.txt > allcounts_no_header.txt #remove the header
 
+awk '{print $1, $7, $8, $9, $10, $11, $12}' allcounts_no_header.txt > allcounts_filtered.txt #extract columns 1 for geneid and 7-12 for sample counts.
 
+sed -i '1s/.*/Geneid ERR2713020 ERR2713021 ERR2713022 ERR2713023 ERR2713024 ERR2713025/' allcounts_filtered.txt #rename the column names to match sample names.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+sed 's/\s\+/,/g' allcounts_filtered.txt > allcounts.csv #creating a comma separated file
+```
