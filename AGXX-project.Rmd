@@ -227,3 +227,155 @@ sed -i '1s/.*/Geneid ERR2713020 ERR2713021 ERR2713022 ERR2713023 ERR2713024 ERR2
 
 sed 's/\s\+/,/g' allcounts_filtered.txt > allcounts.csv #creating a comma separated file
 ```
+
+STAGE 2
+
+Once a counts file has been obtained from the alignment. The file can be imported into R for differential analysis.
+
+First install and load the below packages
+```{r}
+#install.packages("DESeq2")
+#install.packages("dplyr")
+#install.packages("ggplot2")
+library(DESeq2) #for diffrential analysis
+library(dplyr) #used for certain functions
+library(ggplot2) #to be able to manually plot the MAplot
+```
+
+Import the counts file obtained from feature counts after alignment.
+```{r}
+count <- read.csv("C:/Users/srila/AGXX_project/allcounts.csv") #downloaded in csv format
+
+count #visualise the table (ensure it is in a dataframe format)
+```
+
+For differential analysis, a metadata file is required to label the samples. To identify this, download the sample and data relationship format file provided by the paper.
+```{r}
+#install.packages("readr")
+#install.packages("data.table")
+
+library(readr)
+library(data.table)
+sdrf_data <- read_tsv("C:/Users/srila/Downloads/E-MTAB-7074/E-MTAB-7074.sdrf.txt") #writen in tsv format
+
+sdrf_data
+#The output data indicates that the first three samples (ENA_Run: ERR2713020, ERR2713021, and ERR2713022) were treated with 4.5 µg/ml of AGXX, classifying them as the treatment group as described in the paper. The last three samples are therefore identified as the control group.
+```
+
+R can sometimes give an error of duplicate rows so to avoid this, remove the row names, make them unique and insert back into the data frame.
+```{r}
+uniq_name <- make.names(count$Geneid, unique = TRUE) #making values unique and readable by R
+row.names(count) <- uniq_name #insert back into the dataframe
+mat <- count #preserves original counts file
+mat <- mat[, -1] #used for DESeqDataSetFromMatrix command as it requires a numeric matrix of raw counts as the input.
+
+count #visualise
+```
+
+Setting up the metadata file and the experimental design for DESeq2
+```{r}
+
+metadata <- c("treatement", "treatement", "treatement", "control", "control", "control") 
+
+colData <- data.frame(metadata = metadata) #ensure its a dataframe
+
+colData #visualise
+
+```
+
+Create the data set object used for the analysis.
+```{r}
+ds <- DESeqDataSetFromMatrix(countData=mat, colData=colData, design=~metadata) 
+#countData is the raw input of the data without identifiers.
+#colData the dataframe object containing the metadata about the samples, keeps data organised.
+#experimental design ensures the test only compares between the samples, tells DESeq2 to model differences based on colData.
+ds
+```
+
+Perform the DESeq analysis
+```{r}
+ds <- DESeq(ds)
+```
+
+Get the results and visualise the summary
+```{r}
+res <- results(ds, alpha = 0.05) #deseq defaults p value to 0.1, this can be adjusted to 0.05 as specified by the paper
+res <- as_tibble(res, rownames = "USA300.numbers") #rename the rownames as that of the locustags and convert as a tibble for easy analysis and visualisation.
+
+res #visualise
+
+summary(res)
+```
+
+R can instantly plot an MA plot using its own function.
+```{r}
+plotMA(ds) #plots a simple MA plot.
+#We can manually plot the graph specifying our needs.
+```
+
+We can manually plot an MA plot specifying our needs. To annotate the regulons on the graph, 
+Import in the supplementary table to merge in columns for Regulons according to the locus tags
+```{r}
+supp_table <- read.csv("~/AGXX_project/Table 1.csv") #import supplementary table
+
+supp_table #visualises
+```
+
+Merge with left join and filter out columns for significantly induced and repressed transcripts
+```{r}
+supplementary_selected <- supp_table %>%
+  select(USA300.numbers, Regulon, Gene.symbol) #select only the rows containing Regulon and the locus tags
+
+res_merged <- res %>%
+  left_join(supplementary_selected, by = "USA300.numbers") #merge table by USA300.numbers with a left join
+
+res_merged
+
+res_merged$Significant <- ifelse(res_merged$padj <= 0.05 & res_merged$log2FoldChange >= 0.6, TRUE, FALSE) #create a column for significant values 
+
+res_merged$Repressed <- ifelse(res_merged$padj <= 0.05 & res_merged$log2FoldChange <= -0.6, TRUE, FALSE) #create a column to identify repressed values
+
+```
+
+Manually plot the graph
+```{r}
+
+filtered_data <- res_merged %>% filter(!is.na(Regulon))   # create filtered_data variable to filter out regulons that are NA
+ggplot(filtered_data, #plot the MA plot with filtered_data
+       aes(x=log2(baseMean + 1), #x axis for A_value
+           y = log2FoldChange)) +  #y axis for M_value
+  geom_point(aes(colour = Regulon), size = 2.5, alpha =1)+ #plot colours for significantly induced regulons.
+  scale_color_manual(values = c(
+    "TetR" = "darkgreen", "HypR" = "darkred", "MhqR" = "pink", "CidR" = "brown",
+    "QsrR" = "orange", "CtsR" = "purple", "HrcA" = "magenta", "CymR" = "violet",
+    "PerR" = "blue", "Fur" = "cyan", "CsoR" = "lightblue", "CstR" = "lightskyblue",
+    "Zur" = "green"
+  )) +
+  geom_point(
+  data = filtered_data %>% 
+    filter(Significant & !(Regulon %in% c("TetR", "HypR", "MhqR", "CidR", "QsrR", "CtsR", "HrcA", "CymR", "PerR", "Fur", "CsoR", "CstR", "Zur"))),   #ensures the colour does not override regulon assigned colours
+  colour = "yellow", size = 2.5, alpha = 1) +
+  geom_point(
+    data = filtered_data %>%  
+      filter(Repressed),
+    colour = "grey30", size = 2.5, alpha = 1) + #repressed transcripts coloured grey
+  labs(
+    x = "A-value (Log2 Base Mean)",        #labels
+    y = "M-value (Log2 Fold Change)",
+    colour = "Regulon",
+    title = "MA plot of Diffrential Expression by Regulon"
+  ) +
+  scale_x_continuous(
+    breaks = seq(0, 20, by = 2) #The axis ranges from 0 to 20, incrementing by 2.
+  ) +
+  #Adjust the theme for better appearance
+  geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +  # Horizontal line at y=0
+  geom_vline(xintercept = 0, color = "black", linewidth = 0.5) +  # Vertical line at x=0
+  scale_y_continuous(breaks = seq(-8, 12, by = 2)) + # The axis ranges from -8 to 12, incrementing by 2.
+  theme_minimal() +
+  theme( #aesthetic changes
+    plot.title = element_text(hjust = 0.5), #position the labels and legend accordingly
+    axis.title = element_text(size = 12),
+    legend.position = "right" 
+  ) 
+```
