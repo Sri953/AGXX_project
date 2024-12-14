@@ -364,8 +364,8 @@ ds <- DESeq(ds)
 ### Get the results and visualise the summary
 
 ``` {r}
-res <- results(ds, alpha = 0.05)
-res <- as_tibble(res, rownames = "USA300.numbers") #rename the rownames as that of the locustags and convert as a tibble for easy analysis and visualisation.
+res <- results(ds, alpha = 0.05) #p-value is automatically set as 0.1, this is changed to 0.5 to fit the criteria
+res <- as_tibble(res, rownames = "USA300.numbers") #rename the row names as that of the locus tags and convert as a tibble for easy analysis and visualisation.
 
 res #visualise
 
@@ -392,7 +392,7 @@ supp_table <- read.csv("~/AGXX_project/Table 1.csv") #import supplementary table
 supp_table #visualise
 ```
 
-Merge with left join and filter out columns for significantly induced and repressed transcripts.
+Merge with left join and filter out columns for significantly up-regulated and down-regulated transcripts.
 
 ``` {r}
 supplementary_selected <- supp_table %>%
@@ -401,17 +401,17 @@ supplementary_selected <- supp_table %>%
 res_merged <- res %>%
   left_join(supplementary_selected, by = "USA300.numbers") #merge table by USA300.numbers with a left join
 
-res_merged$Induced <- ifelse(res_merged$padj <= 0.05 & res_merged$log2FoldChange >= 0.6, TRUE, FALSE) #create a column for significant values 
+res_merged$Upregulated <- ifelse(res_merged$padj <= 0.05 & res_merged$log2FoldChange >= 0.6, TRUE, FALSE) #create a column for upregulated values 
 
-res_merged$Repressed <- ifelse(res_merged$padj <= 0.05 & res_merged$log2FoldChange <= -0.6, TRUE, FALSE) #create a column to identify repressed values
+res_merged$Downregulated <- ifelse(res_merged$padj <= 0.05 & res_merged$log2FoldChange <= -0.6, TRUE, FALSE) #create a column to identify downregulated values
 ```
 
-Calculate number of transcripts that are induced and repressed, including fold change.
+Calculate number of transcripts that are up-regulated and down-regulated, including fold change.
 
 ``` {r}
-print(paste("Number of up-regulated transcripts:", sum(res_merged$Induced, na.rm=TRUE))) #number of transcript that are upregulated
+print(paste("Number of up-regulated transcripts:", sum(res_merged$Upregulated, na.rm=TRUE))) #number of transcript that are up-regulated
 
-print(paste("Number of downregulated transcripts:", sum(res_merged$Repressed, na.rm=TRUE))) #number of transcripts that are downregulated
+print(paste("Number of downregulated transcripts:", sum(res_merged$Downregulated, na.rm=TRUE))) #number of transcripts that are down-regulated
 
 
 #Convert log2 fold change to fold change
@@ -441,7 +441,7 @@ ggplot(filtered_data,                                       #plot the MA plot wi
   
   #Plot Regulons
   geom_point(aes(colour = Regulon), 
-             size = 2, alpha =1)+ #plot colours for significantly induced regulons.
+             size = 2, alpha =1)+ #plot colours for significantly upregulated regulons.
   scale_color_manual(values = 
                        c("TetR" = "darkgreen", "HypR" = "darkred",
                          "MhqR" = "pink","CidR" = "brown",
@@ -451,24 +451,24 @@ ggplot(filtered_data,                                       #plot the MA plot wi
                          "CsoR" = "lightblue", "CstR" = "lightskyblue",
                          "Zur" = "green" )) + 
   
-  #Plot Significant points that are not already identified induced Regulons
+  #Plot Significant points that are not already identified Upregulated Regulons
   geom_point(data = filtered_data %>% 
-             filter(Induced &                          #induced transcripts
+             filter(Upregulated &                          #Upregulated transcripts
                     #Ensure the assigned colors for regulons are not overridden.
                     !(Regulon %in% c("TetR", "HypR", "MhqR", "CidR",  
                                      "QsrR", "CtsR", "HrcA", "CymR", 
                                      "PerR", "Fur", "CsoR","CstR", "Zur"))),
              colour = "yellow", size = 2, alpha = 1) +      
   
-  #Plot Repressed transcripts
+  #Plot downregulated transcripts
   geom_point(data = filtered_data %>% 
-             filter(Repressed),
-             colour = "grey30", size = 2, alpha = 1) + #repressed transcripts coloured dark grey
+             filter(Downregulated),
+             colour = "grey30", size = 2, alpha = 1) + #downregulated transcripts coloured dark grey
   labs(
     x = "A-value (Log2 Base Mean)",                    #labels
     y = "M-value (Log2 Fold Change)",
     colour = "Regulon",
-    title = "MA plot of Diffrential Expression by Regulon"
+    title = "MA plot of Differential Expression"
   ) +
   scale_x_continuous(
     breaks = seq(0, 20, by = 2)   #The axis ranges from 0 to 20, incrementing by 2.
@@ -500,10 +500,10 @@ Volcano plot represents significantly up-regulated and down-regulated transcript
 ``` {r}
 library(ggrepel) #used for labelling 
 
-# Combine "Induced" and "Repressed" into a single significance column to plot
-filtered_data$Significance <- ifelse(filtered_data$Induced == TRUE, "Upregulated",
-                                     ifelse(filtered_data$Repressed == TRUE,
-                                     "Repressed", "Not Significant"))
+# Combine "Upregulated" and "Downregulated" into a single significance column to plot
+filtered_data$Significance <- ifelse(filtered_data$Upregulated == TRUE, "Upregulated",
+                                     ifelse(filtered_data$Downregulated == TRUE,
+                                     "Downregulated", "Not Significant"))
 
 #Create filtered_data2 to filter out NA's in the significance column
 filtered_data2 <- filtered_data %>% filter(!is.na(Significance)) 
@@ -537,9 +537,9 @@ ggplot(filtered_data2,
                   max.overlaps = 10)+
    
   #Plot colour coordinated points
-  scale_color_manual(values = c("Upregulated" = "red", "Repressed" = "blue", "Not Significant" = "gray")) +
+  scale_color_manual(values = c("Upregulated" = "red", "Downregulated" = "blue", "Not Significant" = "gray")) +
   labs(
-    title = "Volcano Plot for Upregulated Genes",     #Labels
+    title = "Volcano Plot of Differential Expression ",     #Labels
     x = "Log2 Fold Change",
     y = "-Log10(P-value)"
   ) +
