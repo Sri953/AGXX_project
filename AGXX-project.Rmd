@@ -13,14 +13,14 @@ Reproducing the computational pipeline of the paper "The AGXX® Antimicrobial Co
 
 Log into HPC and change directory to working environment
 
-``` {bash="FALSE"}
+``` {bash}
 ssh -i~/.ssh/key_name knumber@hpc.create.kcl.ac.uk    #login key
 cd /scratch_tmp/grp/msc_appbio/group5_tmp             #main directory
 ```
 
 Make the necessary directories for data and outputs to be stored into
 
-``` {bash="FALSE"}
+``` {bash}
 mkdir reference_genome                       #for reference genome
 mkdir originals                              #for sample fastq files
 mkdir FastQC                                 #for fastqc outputs
@@ -34,7 +34,7 @@ mkdir featurecounts                          #for all counts file output
 
 Download from GenBank the FASTA (fna) file of reference genome and the gene annotation file into reference_genome
 
-``` {bash="FALSE"}
+``` {bash}
 #download fna file for genome
 wget -N https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/017/085/GCA_000017085.1_ASM1708v1/GCA_000017085.1_ASM1708v1_genomic.fna.gz -O reference_genome/CP000730.fna.gz 
 #downloading gtf - the gene annotation file for the genome
@@ -43,7 +43,7 @@ wget -N https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/017/085/GCA_000017085.1
 
 Download sample fastq files from www.ebi.ac.uk/arrayexpress accession number E-MTAB-7074, into the originals folder using wget
 
-``` {bash="FALSE"}
+``` {bash}
 wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/000/ERR2713020/ERR2713020_1.fastq.gz
 wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/000/ERR2713020/ERR2713020_2.fastq.gz
 wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/001/ERR2713021/ERR2713021_1.fastq.gz
@@ -60,7 +60,7 @@ wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR271/005/ERR2713025/ERR2713025_2.fastq
 
 Create a new working environment called agxx using conda on the HPC
 
-``` {bash="FALSE"}
+``` {bash}
 srun -p msc_appbio --pty /bin/bash #Ask for resources to run the job in the msc_appbio partition
 conda create -n agxx #create the environment for all the packages to be installed into
 conda activate agxx #activate environment before installing packages
@@ -68,7 +68,7 @@ conda activate agxx #activate environment before installing packages
 
 Install the necessary packages needed for alignment of the genome.
 
-``` {bash="FALSE"}
+``` {bash}
 conda install -c bioconda fastqc
 conda install bioconda::bowtie2
 conda install -c bioconda samtools
@@ -79,7 +79,7 @@ conda install -c bioconda subread
 
 QC the samples using fastqc in the main directory
 
-``` {bash="FALSE"}
+``` {basH}
 nano fastqc.sh
 #Contents of the bash script:
 
@@ -115,7 +115,7 @@ less slurm-jobid.out
 
 Once QC has run, transfer HTML files onto local disk using sftp
 
-``` {bash="FALSE"}
+``` {bash}
 #On a new terminal login to sftp using sftp -i ~/.ssh/key_name knumber@hpc.create.kcl.ac.uk
 
 #Change directory to location of html files
@@ -131,7 +131,7 @@ Once QC of files have been done move to alignment of the genome.
 
 In order to align the genome to the reference genome create the bowtie index:
 
-``` {bash="FALSE"}
+``` {bash}
 srun -p msc_appbio --pty /bin/bash # run interactive job if not already on it
 
 bowtie2-build --threads 4 /scratch_tmp/grp/msc_appbio/group5_tmp/reference_genome/CP000730.fna.gz  /scratch_tmp/grp/msc_appbio/group5_tmp/bowtie_index/index
@@ -139,7 +139,7 @@ bowtie2-build --threads 4 /scratch_tmp/grp/msc_appbio/group5_tmp/reference_genom
 
 Create a bash script and run the alignment for all the fastq files
 
-``` {bash="FALSE"}
+``` {bash}
 nano alignment.sh
 #Contents of the bash script:
 
@@ -175,7 +175,7 @@ less slurm-jobid.out
 
 Ensure that the correct sam files are present and then create a bash script to convert sam to bam format
 
-``` {bash="FALSE"}
+``` {bash}
 nano sam_bam.sh
 #Contents of the bash script:
 
@@ -207,7 +207,7 @@ less slurm-jobid.out
 
 For ease of reading, the bam file can be sorted into a sorted bam file.
 
-``` {bash="FALSE"}
+``` {bash}
 nano sorted_bam.sh
 
 #Contents of the bash script:
@@ -239,7 +239,7 @@ less slurm-jobid.out
 
 In order for Diffrential Analysis with DESeq2, feature counts in the conda subread package needs to be used to obtain a counts file.
 
-``` {bash="FALSE"}
+``` {bash}
 #Contents of bash script:
 #!/bin/bash
 
@@ -264,7 +264,7 @@ less slurm-jobid.out
 
 Filter and clean the counts file to convert into a csv file
 
-``` {bash="FALSE"}
+``` {bash}
 #remove the header
 sed '1d' allcounts.txt > allcounts_no_header.txt 
 
@@ -284,7 +284,7 @@ Once a counts file has been obtained from the alignment. The file can be importe
 
 ### Install and load the below packages
 
-``` {r="FALSE"}
+``` {r}
 #install.packages("DESeq2")
 #install.packages("dplyr")
 #install.packages("ggplot2")
@@ -295,7 +295,7 @@ library(ggplot2)                  #to be able to manually plot the MAplot
 
 ### Import the counts file obtained from feature counts after alignment.
 
-``` {r="FALSE"}
+``` {r}
 #downloaded in csv format
 count <- read.csv("~/AGXX_project/allcounts.csv") 
 
@@ -306,7 +306,7 @@ count #visualise the table (ensure it is in a dataframe format)
 
 For differential analysis, a metadata file is required to label the samples. To identify this, download the sample and data relationship format file provided by the paper.
 
-``` {r="FALSE"}
+``` {r}
 #install.packages("readr")
 #install.packages("data.table")
 
@@ -323,7 +323,7 @@ The output data indicates that the first three samples (ENA_Run: ERR2713020, ERR
 
 R can sometimes give an error of duplicate rows so to avoid this, remove the row names, make them unique and insert back into the data frame.
 
-``` {r="FALSE"}
+``` {r}
 uniq_name <- make.names(count$Geneid, unique = TRUE) #making values unique and readable by R
 
 row.names(count) <- uniq_name #insert back into the dataframe
@@ -335,7 +335,7 @@ count #visualise
 
 ### Setting up the metadata file and the experimental design for DESeq2
 
-``` {r="FALSE"}
+``` {r}
 metadata <- c("treatement", "treatement", "treatement", "control", "control", "control") 
 
 colData <- data.frame(metadata = metadata) #ensure its a dataframe
@@ -345,7 +345,7 @@ colData #visualise
 
 ### Create the data set object used for the analysis.
 
-``` {r="FALSE"}
+``` {r}
 ds <- DESeqDataSetFromMatrix(countData=mat, colData=colData, design=~metadata) 
 
 #countData is the raw input of the data without identifiers.
@@ -357,13 +357,13 @@ ds
 
 ### Perform the DESeq analysis
 
-``` {r="FALSE"}
+``` {r}
 ds <- DESeq(ds)
 ```
 
 ### Get the results and visualise the summary
 
-``` {r="FALSE"}
+``` {r}
 res <- results(ds, alpha = 0.05)
 res <- as_tibble(res, rownames = "USA300.numbers") #rename the rownames as that of the locustags and convert as a tibble for easy analysis and visualisation.
 
@@ -376,7 +376,7 @@ summary(res)
 
 R can instantly plot an MA plot using its own function.
 
-``` {r="FALSE"}
+``` {r}
 plotMA(ds) 
 ```
 
@@ -386,7 +386,7 @@ The resulting output isn't as detailed and harder to interpret without the A val
 
 Import in the supplementary table to merge in columns for regulons according to the locus tags.
 
-``` {r="FALSE"}
+``` {r}
 supp_table <- read.csv("~/AGXX_project/Table 1.csv") #import supplementary table
 
 supp_table #visualise
@@ -394,7 +394,7 @@ supp_table #visualise
 
 Merge with left join and filter out columns for significantly induced and repressed transcripts.
 
-``` {r="FALSE"}
+``` {r}
 supplementary_selected <- supp_table %>%
   select(USA300.numbers, Regulon) #select only the rows containing Regulon and the locus tags
 
@@ -408,7 +408,7 @@ res_merged$Repressed <- ifelse(res_merged$padj <= 0.05 & res_merged$log2FoldChan
 
 Calculate number of transcripts that are induced and repressed, including fold change.
 
-``` {r="FALSE"}
+``` {r}
 print(paste("Number of up-regulated transcripts:", sum(res_merged$Induced, na.rm=TRUE))) #number of transcript that are upregulated
 
 print(paste("Number of downregulated transcripts:", sum(res_merged$Repressed, na.rm=TRUE))) #number of transcripts that are downregulated
@@ -430,7 +430,7 @@ res_merged #visualise entire table
 
 Manually plot the ratio/intensity scatter plot
 
-``` {r="FALSE"}
+``` {r}
 #create filtered_data variable to filter out regulons that are NA
 filtered_data <- res_merged %>% filter(!is.na(Regulon)) 
 
@@ -497,13 +497,13 @@ ggsave("MA_plot.jpeg", plot= MA_plot, width = 10, height = 6, dpi = 300) #Save p
 
 Volcano plot represents significantly up-regulated and down-regulated transcripts.
 
-``` {r="FALSE"}
+``` {r}
 library(ggrepel) #used for labelling 
 
 # Combine "Induced" and "Repressed" into a single significance column to plot
 filtered_data$Significance <- ifelse(filtered_data$Induced == TRUE, "Upregulated",
                                      ifelse(filtered_data$Repressed == TRUE,
-                                     "Repressed", Not Significant"))
+                                     "Repressed", "Not Significant"))
 
 #Create filtered_data2 to filter out NA's in the significance column
 filtered_data2 <- filtered_data %>% filter(!is.na(Significance)) 
@@ -559,7 +559,7 @@ ggsave("volcano_plot.jpeg", plot= volcano_plot, width = 10, height = 8, dpi = 30
 
 Load the required libraries
 
-``` {r="FALSE"}
+``` {r}
 library(dplyr)
 library(tibble)
 library(pheatmap)
@@ -567,14 +567,14 @@ library(pheatmap)
 
 Transforming the DESeq2 dataset via log transformation using rlog
 
-``` {r="FALSE"}
+``` {r}
 rlog_transformed <- rlog(ds)
 rlog_matrix <- assay(rlog_transformed)
 ```
 
 Convert the transformed rlog matrix to a data frame with "USA300.numbers" as a new column
 
-``` {r="FALSE"}
+``` {r}
 rlog_df <- as.data.frame(rlog_matrix) %>%
 rownames_to_column(var = "USA300.numbers")
 
@@ -583,7 +583,7 @@ rlog_df
 
 Create a subset of results with relevant selected columns; "USA300.numbers" and "Regulon from the merged results data frame
 
-``` {r="FALSE"}
+``` {r}
 results_subset <- res_merged %>%
 select(USA300.numbers, Regulon)
 
@@ -592,7 +592,7 @@ rlog_df
 
 Merge the results subset with the rlog data frame based on the column: "USA300.numbers"
 
-``` {r="FALSE"}
+``` {r}
 rlog_df <- inner_join(
 results_subset,
 rlog_df,
@@ -604,7 +604,7 @@ rlog_df
 
 Grouping regulon data from the rlog data frame and extract unique regulons
 
-``` {r="FALSE"}
+``` {r}
 regulon_df <- rlog_df %>%
 group_by(Regulon) %>%
 summarise(across(starts_with("ERR"), \(x) mean(x, na.rm = TRUE)))  # Calculates the mean expression for each sample
@@ -616,7 +616,7 @@ view(regulon_df)
 
 Filtering merged results table for regulons based on log2FoldChange and cleaning the columns of all N/A values
 
-``` {r="FALSE"}
+``` {r}
 # Filter the upregulated regulons from the merged results and remove NULL values
 Upregulated <- res_merged %>%
   filter(log2FoldChange > 0.05, !is.na(Regulon)) %>%
@@ -639,7 +639,7 @@ print(Downregulated)
 
 Defining the metadata and sample names
 
-``` {r="FALSE"}
+``` {r}
 # Define the sample names and metadata from DESeq2 for annotation
 Sample_names <- c("ERR2713020", "ERR2713021", "ERR2713022", "ERR2713023", "ERR2713024", "ERR2713025")
   
@@ -648,7 +648,7 @@ Metadata <- c("Treatement", "Treatement", "Treatement", "Control", "Control", "C
 
 Prerequisite for plotting heatmap
 
-``` {r="FALSE"}
+``` {r}
 # Create a annotation column data frame for the heatmap
 coldata <- data.frame(
   Sample = Sample_names,
@@ -659,19 +659,19 @@ rownames(coldata) <- coldata$Sample     # Sample column values are assigned as r
 
 Print the annotation column to verify its structure
 
-``` {r="FALSE"}
+``` {r}
 print(coldata)
 ```
 
 Combine upregulated and downregulated regulons into a single column for plotting
 
-``` {r="FALSE"}
+``` {r}
 regulon_plots <- c(Upregulated, Downregulated)
 ```
 
 Filter the regulon data frame for only the regulons of interest and remove NULL values
 
-``` {r="FALSE"}
+``` {r}
 regulon_df <- regulon_df %>%
   filter(Regulon %in% regulon_plots) %>%
   filter(!is.na(Regulon) & Regulon != "-")
@@ -679,7 +679,7 @@ regulon_df <- regulon_df %>%
 
 Convert the regulon data frame to a matrix, as for heatmap plotting
 
-``` {r="FALSE"}
+``` {r}
 regulon_matrix <- regulon_df %>%
   column_to_rownames("Regulon") %>%   # "Regulon" column is set as the row name in the new matrix
   as.matrix()
@@ -687,7 +687,7 @@ regulon_matrix <- regulon_df %>%
 
 Generate a heatmap to visualize gene expression with annotation and clustering
 
-``` {r="FALSE"}
+``` {r}
 Heat_map <-
 pheatmap(
   mat = regulon_matrix,               
