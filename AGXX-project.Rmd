@@ -479,20 +479,20 @@ print(coldata)
 
 ```{r}
 # Combine upregulated and downregulated regulons into a single column for plotting
-plotting_regulons <- c(Upregulated, Downregulated)
+regulon_plots <- c(Upregulated, Downregulated)
 ```
 
 ```{r}
 # Filter the regulon data frame for only the regulons of interest and remove NULL values
 regulon_df <- regulon_df %>%
-  filter(Regulon %in% plotting_regulons) %>%
+  filter(Regulon %in% regulon_plots) %>%
   filter(!is.na(Regulon) & Regulon != "-")
 ```
 
 ```{r}
 # Convert the regulon data frame to a matrix, as for heatmap plotting
 regulon_matrix <- regulon_df %>%
-  column_to_rownames("Regulon") %>%   # "Regulon" column becomes row name in the new matrix
+  column_to_rownames("Regulon") %>%   # "Regulon" column is set as the row name in the new matrix
   as.matrix()
 ```
 
