@@ -379,3 +379,139 @@ ggplot(filtered_data, #plot the MA plot with filtered_data
     legend.position = "right" 
   ) 
 ```
+HEATMAP:
+
+```{r} 
+# Load the required libraries 
+library(dplyr)
+library(tibble)
+library(pheatmap)
+```
+
+```{r}
+# Transforming the DESeq2 dataset via log transformation using rlog
+rlog_transformed <- rlog(ds)
+rlog_matrix <- assay(rlog_transformed)
+```
+
+```{r}
+# Convert the transformed rlog matrix to a data frame with "USA300.numbers" as a new column
+rlog_df <- as.data.frame(rlog_matrix) %>%
+rownames_to_column(var = "USA300.numbers")
+
+rlog_df
+```
+
+```{r}
+# Creating a subset of results with relevant selected columns; "USA300.numbers" and "Regulon from the merged results data frame
+results_subset <- res_merged %>%
+select(USA300.numbers, Regulon)
+
+rlog_df
+```
+
+```{r}
+# Merge the results subset with the rlog data frame based on the column: "USA300.numbers" 
+rlog_df <- inner_join(
+results_subset,
+rlog_df,
+by = "USA300.numbers"
+)
+
+rlog_df
+```
+
+```{r}
+# Grouping regulon data from the rlog data frame
+regulon_df <- rlog_df %>%
+group_by(Regulon) %>%
+summarise(across(starts_with("ERR"), \(x) mean(x, na.rm = TRUE)))  # Calculates the mean expression for each sample
+
+# Extract unique regulons for further use
+Regulon <- unique(res_merged$Regulon)
+view(regulon_df)
+```
+
+Filtering merged results table for regulons based on log2FoldChange and cleaning the columns of all N/A values
+```{r}
+# Filter the upregulated regulons from the merged results and remove NULL values
+Upregulated <- res_merged %>%
+  filter(log2FoldChange > 0.05, !is.na(Regulon)) %>%
+  pull(Regulon) %>%
+  unique()     # Filter out duplicated Regulons
+
+# Filter the downregulated regulons and remove NULL values
+Downregulated <- res_merged %>%
+  filter(log2FoldChange < 0.05, !is.na(Regulon)) %>%
+  pull(Regulon) %>%
+  unique()     
+
+# Print the filtered regulons as lists according to variable names: "Upregulated" and "Downregulated"
+print("Upregulated Regulons:")
+print(Upregulated)
+
+print("Downregulated Regulons:")
+print(Downregulated)
+```
+
+Defining the metadata and sample names 
+```{r}
+# Define the sample names and metadata from DESeq2 for annotation
+Sample_names <- c("ERR2713020", "ERR2713021", "ERR2713022", "ERR2713023", "ERR2713024", "ERR2713025")
+  
+Metadata <- c("Treatement", "Treatement", "Treatement", "Control", "Control", "Control") 
+```
+
+Prerequisite for plotting heatmap 
+```{r} 
+# Create a annotation column data frame for the heatmap
+coldata <- data.frame(
+  Sample = Sample_names,
+  Group = metadata
+)
+rownames(coldata) <- coldata$Sample     # Sample column values are assigned as row names for the coldata data frame  
+```
+
+Print the annotation column to verify its structure
+```{r}
+print(coldata)
+```
+
+```{r}
+# Combine upregulated and downregulated regulons into a single column for plotting
+plotting_regulons <- c(Upregulated, Downregulated)
+```
+
+```{r}
+# Filter the regulon data frame for only the regulons of interest and remove NULL values
+regulon_df <- regulon_df %>%
+  filter(Regulon %in% plotting_regulons) %>%
+  filter(!is.na(Regulon) & Regulon != "-")
+```
+
+```{r}
+# Convert the regulon data frame to a matrix, as for heatmap plotting
+regulon_matrix <- regulon_df %>%
+  column_to_rownames("Regulon") %>%   # "Regulon" column becomes row name in the new matrix
+  as.matrix()
+```
+
+Plotting the heatmap
+```{r}
+# Generate a heatmap to visualize gene expression with annotation and clustering
+pheatmap(
+  mat = regulon_matrix,               
+  annotation_col = coldata,            # Add annotation column
+  cluster_rows = TRUE,                 # Cluster rows
+  cluster_cols = TRUE,                 # Cluster columns
+  scale = "row",                       # Scale rows for better visualization
+  color = colorRampPalette(c("blue", "white", "red"))(50), # Color gradient
+  main = "Heatmap of Gene Expression", # Title of the heatmap
+  fontsize_row = 8,                    # Adjust font size for rows
+  fontsize_col = 10,                   # Adjust font size for columns
+  cellwidth = 30,                      # Adjust width of cells
+  cellheight = 7,                      # Adjust height of cells
+  treeheight_row = 50,                 # Adjust tree height for rows
+  treeheight_col = 40                  # Adjust tree height for columns
+)
+```
