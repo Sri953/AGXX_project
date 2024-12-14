@@ -364,7 +364,7 @@ ds <- DESeq(ds)
 ### Get the results and visualise the summary
 
 ``` {r}
-res <- results(ds, alpha = 0.05) #p-value is automatically set as 0.1, this is changed to 0.5 to fit the criteria
+res <- results(ds, alpha = 0.05) #p-value is automatically set as 0.1, this is changed to 0.05 to fit the criteria
 res <- as_tibble(res, rownames = "USA300.numbers") #rename the row names as that of the locus tags and convert as a tibble for easy analysis and visualisation.
 
 res #visualise
